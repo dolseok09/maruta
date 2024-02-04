@@ -59,49 +59,50 @@ validate_totp() {
 
 # 설정 파일 초기화 및 업데이트 함수
 initialize_settings() {
-    local ini_file="${HOME%/}/Steam/steamapps/common/PalServer/Pal/Saved/Config/LinuxServer/PalWorldSettings.ini"
-    local custom_settings_file="${HOME%/}/.custom_settings.ini"
+    # 설정 파일 경로
+    ini_file="$HOME/Steam/steamapps/common/PalServer/Pal/Saved/Config/LinuxServer/PalWorldSettings.ini"
+    output_file="$HOME/.palworldsettings.ini"
 
     # 파일 존재 여부 확인
-    if [ ! -f "$custom_settings_file" ]; then
-        touch "$custom_settings_file"
+    if [ ! -f "$ini_file" ]; then
+        echo "Error: $ini_file 파일을 찾을 수 없습니다."
+        exit 1
     fi
 
     # RCONEnabled 값 확인 및 필요한 경우 True로 변경
     if grep -q 'RCONEnabled=False' "$ini_file"; then
         sed -i 's/RCONEnabled=False/RCONEnabled=True/' "$ini_file"
-        sed -i 's/RCONEnabled=False/RCONEnabled=True/' "$custom_settings_file"
         echo "RCONEnabled 설정이 False에서 True로 변경되었습니다."
     else
         echo "RCONEnabled 설정은 이미 True입니다."
     fi
 
-    # AdminPassword 값 설정 (비어있을 때만 입력)
-    local admin_password=$(awk -F'=' '/AdminPassword=/ {print $2}' "$custom_settings_file" | tr -d '"')
-    if [ -z "$admin_password" ]; then
-        read -p "AdminPassword를 입력하세요: " admin_password
-        sed -i "s/AdminPassword=\".*\"/AdminPassword=\"$admin_password\"/" "$ini_file"
-        echo "AdminPassword가 설정되었습니다."
-    fi
+    # AdminPassword 및 RCONPort 값 추출
+    admin_password=$(awk -F '"' '/AdminPassword/ {print $2}' "$ini_file")
+    rcon_port=$(awk -F '=' '/RCONPort/ {print $2}' "$ini_file")
 
-    # RCONPort 값 설정 (비어있을 때만 입력)
-    local rcon_port=$(awk -F'=' '/RCONPort=/ {print $2}' "$custom_settings_file" | tr -d '"')
-    if [ -z "$rcon_port" ]; then
-        read -p "RCONPort를 입력하세요 (기본값: 25575): " rcon_port
-        rcon_port=${rcon_port:-25575}  # 기본값 설정
-        sed -i "s/RCONPort=\".*\"/RCONPort=\"$rcon_port\"/" "$ini_file"
-        echo "RCONPort가 설정되었습니다."
-    fi
+    # 추출된 값으로 .palworldsettings.ini 파일 생성 또는 업데이트
+    echo "AdminPassword=$admin_password" > "$output_file"
+    echo "RCONPort=$rcon_port" >> "$output_file"
 
-    echo "설정이 초기화되었습니다."
+    echo ".palworldsettings.ini 파일이 생성되었습니다."
 
-    # 수정된 파일 내용 확인
-    echo "custom_settings_file 내용:"
-    cat "$custom_settings_file"
+    # 환경 변수로 설정 값 사용하기 (선택적)
+    export AdminPassword="$admin_password"
+    export RCONPort="$rcon_port"
 
-    # 수정된 ini_file 내용 확인
-    echo "ini_file 내용:"
-    cat "$ini_file"
+    # 함수로 설정 값 사용하기 (선택적)
+    getAdminPassword() {
+        echo "$AdminPassword"
+    }
+
+    getRCONPort() {
+        echo "$RCONPort"
+    }
+
+    # 사용 예시
+    echo "AdminPassword는 $(getAdminPassword)입니다."
+    echo "RCONPort는 $(getRCONPort)입니다."
 }
 
 
