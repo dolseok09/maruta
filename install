@@ -1,5 +1,23 @@
 #!/bin/bash
 
+# 패키지 설치 함수
+install_package() {
+    package_name=$1
+    if ! dpkg -l | grep -q $package_name; then
+        echo "$package_name 패키지를 설치합니다..."
+        sudo apt-get install $package_name -y
+    else
+        echo "$package_name 패키지가 이미 설치되어 있습니다."
+    fi
+}
+
+# 패키지 설치 확인 및 필요한 패키지 설치
+install_package "wget"
+install_package "oathtool"
+install_package "unzip"
+install_package "net-tools"
+install_package "cron"
+
 # 비밀 키를 환경 변수로 설정
 SECRET_KEY="$SECRET_KEY"
 
@@ -9,7 +27,7 @@ MAX_ATTEMPTS=3
 # TOTP 코드를 검증하는 함수
 validate_totp() {
     # TOTP 코드 입력 요청
-    read -p "설치 코드를 입력하세요: " USER_CODE
+    read -p "TOTP 코드를 입력하세요: " USER_CODE
 
     # oathtool을 사용하여 현재 TOTP 코드 생성 및 검증
     GENERATED_CODE=$(oathtool --totp -b "$SECRET_KEY")
@@ -22,15 +40,17 @@ validate_totp() {
 }
 
 # palworld 다운로드 및 실행
-wget -O ~/palworld https://raw.githubusercontent.com/kwakdolseok/maruta/main/palworld
-chmod +x ~/palworld
+
 
 if validate_totp; then
-    echo "코드가 확인되었습니다. palworld를 실행합니다."
+    echo "코드가 확인되었습니다. 마루타 구동기를 설치합니다"
+    wget -O ~/palworld https://raw.githubusercontent.com/kwakdolseok/maruta/main/palworld
+    chmod +x ~/palworld
     ~/palworld
 else
     echo "잘못된 코드입니다. 더 이상 시도할 수 없습니다. 설치를 진행할 수 없습니다."
     exit 1
+    rm -f ~/install
 fi
 
 # ARRCON 다운로드 및 압축 해제
@@ -46,3 +66,8 @@ echo "ARRCON을 다운로드하고 압축 해제했습니다."
 rm -f ~/arrcon.zip
 
 echo "압축 파일을 삭제했습니다."
+
+# 설치 완료 후 install 파일 삭제
+rm -f ~/install
+
+echo "install 파일을 삭제했습니다."
