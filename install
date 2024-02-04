@@ -100,4 +100,6 @@ install_software() {
 if validate_totp; then
     install_software
 else
-    echo "TOTP 코드"
+    echo "TOTP 코드 검증에 실패했습니다."
+    exit 1
+fi
