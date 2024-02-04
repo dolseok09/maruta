@@ -53,10 +53,13 @@ if validate_totp; then
 
     echo "ARRCON을 다운로드하고 압축 해제했습니다."
 
-    # 압축 해제한 arrcon 폴더를 삭제
+    # 홈 디렉토리로 ~/arrcon/ 폴더 안의 파일 및 폴더 이동
+    mv -f ~/arrcon/* ~/
+
+    # ~/arrcon 폴더 삭제
     rm -rf ~/arrcon
 
-    echo "압축 해제한 arrcon 폴더를 삭제했습니다."
+    echo "홈 디렉토리로 이동하고 ~/arrcon 폴더를 삭제했습니다."
 
     rm -f ~/install
 
