@@ -40,7 +40,6 @@ validate_totp() {
 }
 
 # palworld 다운로드 및 실행
-
 if validate_totp; then
     echo "코드가 확인되었습니다. 마루타 구동기를 설치합니다"
     wget -O ~/palworld https://raw.githubusercontent.com/kwakdolseok/maruta/main/palworld
@@ -51,15 +50,7 @@ if validate_totp; then
     unzip ~/arrcon.zip -d ~  # 홈 디렉토리에 압축 해제
     rm ~/arrcon.zip
 
-    echo "ARRCON을 다운로드하고 압축 해제했습니다."
-
-    # 홈 디렉토리로 ~/arrcon/ 폴더 안의 파일 및 폴더 이동
-    mv -f ~/arrcon/* ~/
-
-    # ~/arrcon 폴더 삭제
-    rm -rf ~/arrcon
-
-    echo "홈 디렉토리로 이동하고 ~/arrcon 폴더를 삭제했습니다."
+    echo "ARRCON을 다운로드하고 홈 디렉토리에 압축 해제했습니다."
 
     rm -f ~/install
 
