@@ -59,13 +59,12 @@ validate_totp() {
 
 # 설정 파일 초기화 및 업데이트 함수
 initialize_settings() {
-    local ini_file="$HOME/Steam/steamapps/common/PalServer/Pal/Saved/Config/LinuxServer/PalWorldSettings.ini"
-    local init_flag_file="${HOME%/}/.script_init_done"
+    local ini_file="${HOME%/}/Steam/steamapps/common/PalServer/Pal/Saved/Config/LinuxServer/PalWorldSettings.ini"
+    local custom_settings_file="${HOME%/}/.custom_settings.ini"
 
     # 파일 존재 여부 확인
-    if [ ! -f "$ini_file" ]; then
-        echo "Error: $ini_file 파일을 찾을 수 없습니다."
-        return 1
+    if [ ! -f "$custom_settings_file" ]; then
+        touch "$custom_settings_file"
     fi
 
     # RCONEnabled 값 확인 및 필요한 경우 True로 변경
@@ -77,26 +76,21 @@ initialize_settings() {
     fi
 
     # AdminPassword 값 설정
-    local admin_password=$(awk -F'=' '/AdminPassword=/ {print $2}' "$ini_file" | tr -d '"')
+    local admin_password=$(awk -F'=' '/AdminPassword=/ {print $2}' "$custom_settings_file" | tr -d '"')
     if [ -z "$admin_password" ]; then
         read -p "AdminPassword를 입력하세요: " admin_password
-        sed -i "s/AdminPassword=\"\"/AdminPassword=\"$admin_password\"/" "$ini_file"
+        sed -i "s/AdminPassword=\".*\"/AdminPassword=\"$admin_password\"/" "$custom_settings_file"
         echo "AdminPassword가 설정되었습니다."
     fi
 
     # RCONPort 값 설정 (기본값 예시: 32330)
-    local rcon_port=$(awk -F'=' '/RCONPort=/ {print $2}' "$ini_file" | tr -d '"')
+    local rcon_port=$(awk -F'=' '/RCONPort=/ {print $2}' "$custom_settings_file" | tr -d '"')
     if [ -z "$rcon_port" ]; then
         read -p "RCONPort를 입력하세요 (기본값: 32330): " rcon_port
         rcon_port=${rcon_port:-32330}  # 기본값 설정
-        sed -i "s/RCONPort=\"\"/RCONPort=\"$rcon_port\"/" "$ini_file"
+        sed -i "s/RCONPort=\".*\"/RCONPort=\"$rcon_port\"/" "$custom_settings_file"
         echo "RCONPort가 설정되었습니다."
     fi
-
-    # 설정 변경 사항을 init_flag_file에 저장
-    echo "AdminPassword=$admin_password" > "$init_flag_file"
-    echo "RCONPort=$rcon_port" >> "$init_flag_file"
-    echo "RCONEnabled=True" >> "$init_flag_file"
 
     echo "설정이 초기화되었습니다."
 }
