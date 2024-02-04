@@ -80,8 +80,6 @@ initialize_settings() {
     local admin_password=$(awk -F'=' '/AdminPassword=/ {print $2}' "$custom_settings_file" | tr -d '"')
     if [ -z "$admin_password" ]; then
         read -p "AdminPassword를 입력하세요: " admin_password
-        sed -i "s/AdminPassword=.*$/AdminPassword=\"$admin_password\"/" "$ini_file"
-        echo "AdminPassword가 설정되었습니다."
     fi
 
     # RCONPort 값 설정 (기본값 예시: 25575)
@@ -89,11 +87,11 @@ initialize_settings() {
     if [ -z "$rcon_port" ]; then
         read -p "RCONPort를 입력하세요 (기본값: 25575): " rcon_port
         rcon_port=${rcon_port:-25575}  # 기본값 설정
-        sed -i "s/RCONPort=.*$/RCONPort=\"$rcon_port\"/" "$ini_file"
-        echo "RCONPort가 설정되었습니다."
     fi
 
-    echo "설정이 초기화되었습니다."
+    # 설정 변경 사항을 파일에 저장
+    sed -i "s/AdminPassword=\".*\"/AdminPassword=\"$admin_password\"/" "$custom_settings_file"
+    sed -i "s/RCONPort=\".*\"/RCONPort=\"$rcon_port\"/" "$custom_settings_file"
 
     # 수정된 파일 내용 확인
     echo "custom_settings_file 내용:"
@@ -103,6 +101,7 @@ initialize_settings() {
     echo "ini_file 내용:"
     cat "$ini_file"
 }
+
 
 
 # 소프트웨어 설치 함수
