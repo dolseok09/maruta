@@ -57,16 +57,17 @@ validate_totp() {
     fi
 }
 
-# 설정 파일 초기화 및 업데이트 함수
-initialize_settings() {
-    # 설정 파일 경로
-    ini_file="$HOME/Steam/steamapps/common/PalServer/Pal/Saved/Config/LinuxServer/PalWorldSettings.ini"
-    output_file="$HOME/.palworldsettings.ini"
+# 설정 파일 초기화 및 업데이트 함
+
+
+read_palworld_settings() {
+    local ini_file="$HOME/Steam/steamapps/common/PalServer/Pal/Saved/Config/LinuxServer/PalWorldSettings.ini"
+    local output_file="$HOME/.palworldsettings.ini"
 
     # 파일 존재 여부 확인
     if [ ! -f "$ini_file" ]; then
         echo "Error: $ini_file 파일을 찾을 수 없습니다."
-        exit 1
+        return 1
     fi
 
     # RCONEnabled 값 확인 및 필요한 경우 True로 변경
@@ -77,33 +78,57 @@ initialize_settings() {
         echo "RCONEnabled 설정은 이미 True입니다."
     fi
 
-    # AdminPassword 및 RCONPort 값 추출
-    admin_password=$(awk -F '"' '/AdminPassword/ {print $2}' "$ini_file")
-    rcon_port=$(awk -F '=' '/RCONPort/ {print $2}' "$ini_file")
+    # AdminPassword 값 추출
+    local admin_password=$(awk '/AdminPassword=/ {match($0, /AdminPassword="([^"]*)"/, arr); print arr[1]}' "$ini_file")
+    
+    # RCONPort 값 추출
+    local rcon_port=$(awk '/RCONPort=/ {match($0, /RCONPort=([0-9]+)/, arr); print arr[1]}' "$ini_file")
 
     # 추출된 값으로 .palworldsettings.ini 파일 생성 또는 업데이트
-    echo "AdminPassword=$admin_password" > "$output_file"
-    echo "RCONPort=$rcon_port" >> "$output_file"
+    echo "AdminPassword: $admin_password" > "$output_file"
+    echo "RCONPort: $rcon_port" >> "$output_file"
 
     echo ".palworldsettings.ini 파일이 생성되었습니다."
-
-    # 환경 변수로 설정 값 사용하기 (선택적)
-    export AdminPassword="$admin_password"
-    export RCONPort="$rcon_port"
-
-    # 함수로 설정 값 사용하기 (선택적)
-    getAdminPassword() {
-        echo "$AdminPassword"
-    }
-
-    getRCONPort() {
-        echo "$RCONPort"
-    }
-
-    # 사용 예시
-    echo "AdminPassword는 $(getAdminPassword)입니다."
-    echo "RCONPort는 $(getRCONPort)입니다."
 }
+
+# AdminPassword 값을 얻는 함수
+getAdminPassword() {
+    local output_file="$HOME/.palworldsettings.ini"
+    local admin_password=$(awk '/AdminPassword:/ {print $2}' "$output_file")
+    echo "$admin_password"
+}
+
+# RCONPort 값을 얻는 함수
+getRCONPort() {
+    local output_file="$HOME/.palworldsettings.ini"
+    local rcon_port=$(awk '/RCONPort:/ {print $2}' "$output_file")
+    echo "$rcon_port"
+}
+
+# 스크립트 사용 예시
+read_palworld_settings
+echo "AdminPassword는 $(getAdminPassword)입니다."
+echo "RCONPort는 $(getRCONPort)입니다."
+
+
+# AdminPassword 값을 얻는 함수
+getAdminPassword() {
+    local output_file="$HOME/.palworldsettings.ini"
+    local admin_password=$(awk '/AdminPassword:/ {print $2}' "$output_file")
+    echo "$admin_password"
+}
+
+# RCONPort 값을 얻는 함수
+getRCONPort() {
+    local output_file="$HOME/.palworldsettings.ini"
+    local rcon_port=$(awk '/RCONPort:/ {print $2}' "$output_file")
+    echo "$rcon_port"
+}
+
+# 스크립트 사용 예시
+read_palworld_settings
+echo "AdminPassword는 $(getAdminPassword)입니다."
+echo "RCONPort는 $(getRCONPort)입니다."
 
 
 
@@ -150,7 +175,7 @@ install_software() {
 # TOTP 코드 검증 후 소프트웨어 설치 및 설정 초기화
 if validate_totp; then
     install_software
-    initialize_settings
+    iread_palworld_settings
 else
     echo "TOTP 코드 검증에 실패했습니다."
     exit 1
