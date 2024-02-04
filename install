@@ -76,25 +76,28 @@ initialize_settings() {
         echo "RCONEnabled 설정은 이미 True입니다."
     fi
 
-    # AdminPassword 값 설정 (빈 값일 때만 입력)
+    # AdminPassword 값 설정 (비어있을 때만 입력)
     local admin_password=$(awk -F'=' '/AdminPassword=/ {print $2}' "$custom_settings_file" | tr -d '"')
     if [ -z "$admin_password" ]; then
         read -p "AdminPassword를 입력하세요: " admin_password
-        if [ -n "$admin_password" ]; then
-            sed -i "s/AdminPassword=\".*\"/AdminPassword=\"$admin_password\"/" "$ini_file"
-            echo "AdminPassword가 설정되었습니다."
-        fi
+        sed -i "s/AdminPassword=\".*\"/AdminPassword=\"$admin_password\"/" "$ini_file"
+        echo "AdminPassword가 설정되었습니다."
     fi
 
-    # RCONPort 값 설정 (빈 값일 때만 입력, 기본값 예시: 25575)
+    # RCONPort 값 설정 (비어있을 때만 입력)
     local rcon_port=$(awk -F'=' '/RCONPort=/ {print $2}' "$custom_settings_file" | tr -d '"')
     if [ -z "$rcon_port" ]; then
         read -p "RCONPort를 입력하세요 (기본값: 25575): " rcon_port
-        if [ -n "$rcon_port" ]; then
-            sed -i "s/RCONPort=\".*\"/RCONPort=\"$rcon_port\"/" "$ini_file"
-            echo "RCONPort가 설정되었습니다."
-        fi
+        rcon_port=${rcon_port:-25575}  # 기본값 설정
+        sed -i "s/RCONPort=\".*\"/RCONPort=\"$rcon_port\"/" "$ini_file"
+        echo "RCONPort가 설정되었습니다."
     fi
+
+    echo "설정이 초기화되었습니다."
+
+    # 수정된 파일 내용 확인
+    echo "custom_settings_file 내용:"
+    cat "$custom_settings_file"
 
     # 수정된 ini_file 내용 확인
     echo "ini_file 내용:"
