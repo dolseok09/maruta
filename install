@@ -80,18 +80,16 @@ initialize_settings() {
     local admin_password=$(awk -F'=' '/AdminPassword=/ {print $2}' "$custom_settings_file" | tr -d '"')
     if [ -z "$admin_password" ]; then
         read -p "AdminPassword를 입력하세요: " admin_password
-        sed -i "s/AdminPassword=\".*\"/AdminPassword=\"$admin_password\"/" "$custom_settings_file"
-        sed -i "s/AdminPassword=\".*\"/AdminPassword=\"$admin_password\"/" "$ini_file"
+        sed -i "s/AdminPassword=.*$/AdminPassword=\"$admin_password\"/" "$ini_file"
         echo "AdminPassword가 설정되었습니다."
     fi
 
-    # RCONPort 값 설정 (기본값 예시: 32330)
+    # RCONPort 값 설정 (기본값 예시: 25575)
     local rcon_port=$(awk -F'=' '/RCONPort=/ {print $2}' "$custom_settings_file" | tr -d '"')
     if [ -z "$rcon_port" ]; then
         read -p "RCONPort를 입력하세요 (기본값: 25575): " rcon_port
         rcon_port=${rcon_port:-25575}  # 기본값 설정
-        sed -i "s/RCONPort=\".*\"/RCONPort=\"$rcon_port\"/" "$custom_settings_file"
-        sed -i "s/RCONPort=\".*\"/RCONPort=\"$rcon_port\"/" "$ini_file"
+        sed -i "s/RCONPort=.*$/RCONPort=\"$rcon_port\"/" "$ini_file"
         echo "RCONPort가 설정되었습니다."
     fi
 
