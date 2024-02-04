@@ -9,7 +9,7 @@ MAX_ATTEMPTS=3
 # TOTP 코드를 검증하는 함수
 validate_totp() {
     # TOTP 코드 입력 요청
-    read -p "TOTP 코드를 입력하세요: " USER_CODE
+    read -p "설치 코드를 입력하세요: " USER_CODE
 
     # oathtool을 사용하여 현재 TOTP 코드 생성 및 검증
     GENERATED_CODE=$(oathtool --totp -b "$SECRET_KEY")
