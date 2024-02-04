@@ -100,4 +100,4 @@ install_software() {
 if validate_totp; then
     install_software
 else
-    echo "TOTP 코드
+    echo "TOTP 코드"
