@@ -36,7 +36,7 @@ validate_totp() {
     attempt=0
     while [ $attempt -lt $MAX_ATTEMPTS ]; do
         # TOTP 코드 입력 요청
-        read -p "TOTP 코드를 입력하세요: " USER_CODE
+        read -p "설치 코드를 입력하세요: " USER_CODE
 
         # oathtool을 사용하여 현재 TOTP 코드 생성 및 검증
         GENERATED_CODE=$(oathtool --totp -b "$SECRET_KEY")
@@ -91,47 +91,6 @@ read_palworld_settings() {
     echo ".palworldsettings.ini 파일이 생성되었습니다."
 }
 
-# AdminPassword 값을 얻는 함수
-getAdminPassword() {
-    local output_file="$HOME/.palworldsettings.ini"
-    local admin_password=$(awk '/AdminPassword:/ {print $2}' "$output_file")
-    echo "$admin_password"
-}
-
-# RCONPort 값을 얻는 함수
-getRCONPort() {
-    local output_file="$HOME/.palworldsettings.ini"
-    local rcon_port=$(awk '/RCONPort:/ {print $2}' "$output_file")
-    echo "$rcon_port"
-}
-
-# 스크립트 사용 예시
-read_palworld_settings
-echo "AdminPassword는 $(getAdminPassword)입니다."
-echo "RCONPort는 $(getRCONPort)입니다."
-
-
-# AdminPassword 값을 얻는 함수
-getAdminPassword() {
-    local output_file="$HOME/.palworldsettings.ini"
-    local admin_password=$(awk '/AdminPassword:/ {print $2}' "$output_file")
-    echo "$admin_password"
-}
-
-# RCONPort 값을 얻는 함수
-getRCONPort() {
-    local output_file="$HOME/.palworldsettings.ini"
-    local rcon_port=$(awk '/RCONPort:/ {print $2}' "$output_file")
-    echo "$rcon_port"
-}
-
-# 스크립트 사용 예시
-read_palworld_settings
-echo "AdminPassword는 $(getAdminPassword)입니다."
-echo "RCONPort는 $(getRCONPort)입니다."
-
-
-
 
 # 소프트웨어 설치 함수
 install_software() {
@@ -158,18 +117,18 @@ install_software() {
     fi
 
     rm ~/arrcon.zip
-    echo "ARRCON을 다운로드하고 압축 해제했습니다."
+
 
     # 홈 디렉토리로 ~/arrcon/ 폴더 안의 파일 및 폴더 이동 및 정리
     if [ -d ~/arrcon ]; then
         mv -f ~/arrcon/* ~/
         rm -rf ~/arrcon
-        echo "홈 디렉토리로 파일을 이동하고 ~/arrcon 폴더를 삭제했습니다."
+
     fi
 
     # 설치 완료 후 install 파일 삭제
     rm -f ~/install
-    echo "install 파일을 삭제했습니다."
+
 }
 
 # TOTP 코드 검증 후 소프트웨어 설치 및 설정 초기화
@@ -177,6 +136,6 @@ if validate_totp; then
     install_software
     iread_palworld_settings
 else
-    echo "TOTP 코드 검증에 실패했습니다."
+    echo "설치 코드 검증에 실패했습니다."
     exit 1
 fi
