@@ -57,36 +57,34 @@ validate_totp() {
 # 설정 파일 초기화 및 업데이트 함
 
 
+# 설정 파일 초기화 및 업데이트 함수
 read_palworld_settings() {
     local ini_file="$HOME/Steam/steamapps/common/PalServer/Pal/Saved/Config/LinuxServer/PalWorldSettings.ini"
+    local output_file="$HOME/.palworldsettings.ini"
 
+    # 파일 존재 여부 확인
     if [ ! -f "$ini_file" ]; then
         echo "Error: $ini_file 파일을 찾을 수 없습니다."
         return 1
     fi
 
     # RCONEnabled 값 확인 및 필요한 경우 True로 변경
-    local rcon_enabled=$(grep 'RCONEnabled=' "$ini_file" | cut -d '=' -f2)
-    if [ "$rcon_enabled" = "False" ]; then
+    if grep -q 'RCONEnabled=False' "$ini_file"; then
         sed -i 's/RCONEnabled=False/RCONEnabled=True/' "$ini_file"
-        rcon_enabled="True"  # 변경된 값으로 업데이트
         echo "RCONEnabled 설정이 False에서 True로 변경되었습니다."
     else
         echo "RCONEnabled 설정은 이미 True입니다."
     fi
 
     # AdminPassword 값 추출
-    local admin_password=$(awk -F'=' '/AdminPassword=/ {print $2}' "$ini_file" | tr -d '"')
-
+    local admin_password=$(awk '/AdminPassword=/ {match($0, /AdminPassword="([^"]*)"/, arr); print arr[1]}' "$ini_file")
+    
     # RCONPort 값 추출
-    local rcon_port=$(awk -F'=' '/RCONPort=/ {print $2}' "$ini_file")
+    local rcon_port=$(awk '/RCONPort=/ {match($0, /RCONPort=([0-9]+)/, arr); print arr[1]}' "$ini_file")
 
     # 추출된 값으로 .palworldsettings.ini 파일 생성 또는 업데이트
-    {
-        echo "RCONEnabled: $rcon_enabled"
-        echo "AdminPassword: $admin_password"
-        echo "RCONPort: $rcon_port"
-    } > "$output_file"
+    echo "AdminPassword: $admin_password" > "$output_file"
+    echo "RCONPort: $rcon_port" >> "$output_file"
 
     echo ".palworldsettings.ini 파일이 생성되었습니다."
 }
