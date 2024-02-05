@@ -68,12 +68,16 @@ read_palworld_settings() {
         return 1
     fi
 
-    # RCONEnabled 값 확인 및 필요한 경우 True로 변경
-    if grep -q 'RCONEnabled=False' "$ini_file"; then
+    # RCONEnabled 값 확인 및 필요한 경우 True로 변경, 그리고 추출
+    rcon_enabled=$(awk '/RCONEnabled=/ {match($0, /RCONEnabled=(True|False)/, arr); print arr[1]}' "$ini_file")
+
+    # 필요한 경우 RCONEnabled 값을 True로 변경
+    if [ "$rcon_enabled" = "False" ]; then
         sed -i 's/RCONEnabled=False/RCONEnabled=True/' "$ini_file"
+        rcon_enabled="True"
         echo "RCONEnabled 설정이 False에서 True로 변경되었습니다."
     else
-        echo "RCONEnabled 설정은 이미 True입니다."
+        echo "RCONEnabled 설정은 이미 $rcon_enabled 입니다."
     fi
 
     # AdminPassword 값 추출
@@ -85,6 +89,7 @@ read_palworld_settings() {
     # 추출된 값으로 .palworldsettings.ini 파일 생성 또는 업데이트
     echo "AdminPassword: $admin_password" > "$output_file"
     echo "RCONPort: $rcon_port" >> "$output_file"
+    echo "RCONEnabled: $rcon_enabled" >> "$output_file"
 
     echo ".palworldsettings.ini 파일이 생성되었습니다."
 }
