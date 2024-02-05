@@ -62,17 +62,17 @@ validate_totp() {
 
 read_palworld_settings() {
     local ini_file="$HOME/Steam/steamapps/common/PalServer/Pal/Saved/Config/LinuxServer/PalWorldSettings.ini"
-    local output_file="$HOME/.palworldsettings.ini"
 
-    # 파일 존재 여부 확인
     if [ ! -f "$ini_file" ]; then
         echo "Error: $ini_file 파일을 찾을 수 없습니다."
         return 1
     fi
 
     # RCONEnabled 값 확인 및 필요한 경우 True로 변경
-    if grep -q 'RCONEnabled=False' "$ini_file"; then
+    local rcon_enabled=$(grep 'RCONEnabled=' "$ini_file" | cut -d '=' -f2)
+    if [ "$rcon_enabled" = "False" ]; then
         sed -i 's/RCONEnabled=False/RCONEnabled=True/' "$ini_file"
+        rcon_enabled="True"  # 변경된 값으로 업데이트
         echo "RCONEnabled 설정이 False에서 True로 변경되었습니다."
     else
         echo "RCONEnabled 설정은 이미 True입니다."
@@ -85,7 +85,8 @@ read_palworld_settings() {
     local rcon_port=$(awk '/RCONPort=/ {match($0, /RCONPort=([0-9]+)/, arr); print arr[1]}' "$ini_file")
 
     # 추출된 값으로 .palworldsettings.ini 파일 생성 또는 업데이트
-    echo "AdminPassword: $admin_password" > "$output_file"
+    echo "RCONEnabled: $rcon_enabled" > "$output_file"
+    echo "AdminPassword: $admin_password" >> "$output_file"
     echo "RCONPort: $rcon_port" >> "$output_file"
 
     echo ".palworldsettings.ini 파일이 생성되었습니다."
@@ -134,7 +135,7 @@ install_software() {
 # TOTP 코드 검증 후 소프트웨어 설치 및 설정 초기화
 if validate_totp; then
     install_software
-    iread_palworld_settings
+    read_palworld_settings
 else
     echo "설치 코드 검증에 실패했습니다."
     exit 1
