@@ -1,6 +1,9 @@
 #!/bin/bash
-output_file="$HOME/.palworldsettings.ini"
+
+# 필요한 패키지들을 하나의 문자열에 저장
 REQUIRED_PACKAGES="wget oathtool unzip net-tools cron"
+
+# 미설치된 패키지들을 확인하고 저장할 변수 초기화
 PACKAGES_TO_INSTALL=""
 
 # 각 필수 패키지에 대해 설치 여부 확인
@@ -33,7 +36,7 @@ validate_totp() {
     attempt=0
     while [ $attempt -lt $MAX_ATTEMPTS ]; do
         # TOTP 코드 입력 요청
-        read -p "설치 코드를 입력하세요: " USER_CODE
+        read -p "TOTP 코드를 입력하세요: " USER_CODE
 
         # oathtool을 사용하여 현재 TOTP 코드 생성 및 검증
         GENERATED_CODE=$(oathtool --totp -b "$SECRET_KEY")
@@ -49,13 +52,10 @@ validate_totp() {
     if [ $attempt -eq $MAX_ATTEMPTS ]; then
         echo "최대 시도 횟수를 초과했습니다. 설치를 진행할 수 없습니다."
         rm -f ~/install  # 최대 시도 횟수를 초과했을 때 install 파일 삭제
-
+        echo "install 파일이 삭제되었습니다."
         exit 1
     fi
 }
-
-# 설정 파일 초기화 및 업데이트 함
-
 
 # 설정 파일 초기화 및 업데이트 함수
 read_palworld_settings() {
@@ -89,6 +89,20 @@ read_palworld_settings() {
     echo ".palworldsettings.ini 파일이 생성되었습니다."
 }
 
+# AdminPassword 값을 얻는 함수
+getAdminPassword() {
+    local output_file="$HOME/.palworldsettings.ini"
+    local admin_password=$(awk '/AdminPassword:/ {print $2}' "$output_file")
+    echo "$admin_password"
+}
+
+# RCONPort 값을 얻는 함수
+getRCONPort() {
+    local output_file="$HOME/.palworldsettings.ini"
+    local rcon_port=$(awk '/RCONPort:/ {print $2}' "$output_file")
+    echo "$rcon_port"
+}
+
 # 소프트웨어 설치 함수
 install_software() {
     echo "마루타 구동기를 설치합니다"
@@ -114,18 +128,18 @@ install_software() {
     fi
 
     rm ~/arrcon.zip
-
+    echo "ARRCON을 다운로드하고 압축 해제했습니다."
 
     # 홈 디렉토리로 ~/arrcon/ 폴더 안의 파일 및 폴더 이동 및 정리
     if [ -d ~/arrcon ]; then
         mv -f ~/arrcon/* ~/
         rm -rf ~/arrcon
-
+        echo "홈 디렉토리로 파일을 이동하고 ~/arrcon 폴더를 삭제했습니다."
     fi
 
     # 설치 완료 후 install 파일 삭제
     rm -f ~/install
-
+    echo "install 파일을 삭제했습니다."
 }
 
 # TOTP 코드 검증 후 소프트웨어 설치 및 설정 초기화
@@ -133,6 +147,6 @@ if validate_totp; then
     install_software
     read_palworld_settings
 else
-    echo "설치 코드 검증에 실패했습니다."
+    echo "TOTP 코드 검증에 실패했습니다."
     exit 1
 fi
