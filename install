@@ -1,291 +1,141 @@
 #!/bin/bash
 
+# 필요한 패키지들을 하나의 문자열에 저장
+REQUIRED_PACKAGES="wget oathtool unzip net-tools cron"
 
-USERNAME=$(whoami)
-SERVICE_NAME="Palworld"
-SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
-VERSION="0.1.2"
-INIT_FLAG_FILE="${HOME%/}/.script_init_done"
+# 미설치된 패키지들을 확인하고 저장할 변수 초기화
+PACKAGES_TO_INSTALL=""
 
+# 각 필수 패키지에 대해 설치 여부 확인
+for pkg in $REQUIRED_PACKAGES; do
+    if ! dpkg -l | grep -qw "^ii  $pkg "; then
+        PACKAGES_TO_INSTALL="$PACKAGES_TO_INSTALL $pkg"
+    else
+        echo "$pkg 패키지가 이미 설치되어 있습니다."
+    fi
+done
 
-print_message() {
-    echo -e "[\033[1;34m\033[1m마루타 구동기\033[0m] $1"  # 파란색 볼드
-}
-
-print_message_usage() {
-    echo -e "[\033[1;36m\033[1m사 용 법\033[0m] $1"  # 청록색 볼드
-}
-
-print_initial_message() {
-    print_message "안녕하세요 $USERNAME 님 마루타 구동기를 이용해 주셔서 감사합니다. "
-    print_message "기존에 이용자가 테스트가 아닌 먼저 테스트를 진행 후 업데이트하도록 하겠습니다."
-    print_message "기존 버그 & 오류 & 메시지 무한 출력은 곽돌석 에 문의 부탁드립니다."
-    echo " "
-    print_usage
-}
-
-
-print_usage() {
-    print_message_usage "서버 시작 : ./palworld start | st | 시작" 
-    print_message_usage "Palworld Server 백그라운드 에서 실행 합니다. "
-    echo -e ""
-    print_message_usage "서버 종료 : ./palworld stop | sp | 종료"
-    print_message_usage "Palworld Server 백그라운드 에서 종료 합니다."
-    echo -e ""
-    print_message_usage "서버 업데이트 : ./palworld update | up | 업데이트"
-    print_message_usage "Palworld Server 버전을 업데이트 합니다"
-    echo -e ""
-    print_message_usage "명령어 사용법  : ./palworld 명령어" 
-    print_message_usage "예) ./palworld start | st | 시작 이렇게 있으면 3개중 선택 "
-    print_message_usage "예) ./palworld st"
-    echo -e ""
-}
-
-# 서비스 파일 생성 함수
-create_service_file() {
-    [ -f "$SERVICE_FILE" ] && return
-
-    sudo tee "$SERVICE_FILE" >/dev/null <<EOF
-[Unit]
-Description=Palworld Service
-Wants=network-online.target
-After=network-online.target
-
-[Service]
-Type=simple
-User=$USERNAME
-Group=$USERNAME
-WorkingDirectory=${HOME%/}/Steam/steamapps/common/PalServer
-ExecStart=${HOME%/}/Steam/steamapps/common/PalServer/PalServer.sh -useperfthreads -NoAsyncLoadingThread -UseMultithreadForDS
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    sudo systemctl daemon-reload
-    sudo systemctl enable $SERVICE_NAME
-    print_message "$SERVICE_NAME 리눅스 시스템에 구동기 등록이 완료되었습니다."
-}
-
-getAdminPassword() {
-    local output_file="$HOME/.palworldsettings.ini"
-    if [ ! -f "$output_file" ]; then
-        print_message "설정 파일($output_file)이 존재하지 않습니다."
+# 설치가 필요한 패키지가 있는 경우, 모두 한 번에 설치
+if [ -n "$PACKAGES_TO_INSTALL" ]; then
+    echo "다음 패키지를 설치합니다: $PACKAGES_TO_INSTALL"
+    sudo apt-get install -y -qq $PACKAGES_TO_INSTALL
+    if [ $? -ne 0 ]; then
+        echo "패키지 설치에 실패했습니다."
         exit 1
     fi
-    local admin_password=$(awk '/AdminPassword:/ {print $2}' "$output_file")
-    echo "$admin_password"
-}
+fi
 
-getRCONPort() {
-    local output_file="$HOME/.palworldsettings.ini"
-    if [ ! -f "$output_file" ]; then
-        print_message "설정 파일($output_file)이 존재하지 않습니다."
+# 비밀 키를 환경 변수로 설정
+SECRET_KEY="$SECRET_KEY"
+
+# 최대 시도 횟수
+MAX_ATTEMPTS=3
+
+# TOTP 코드를 검증하는 함수
+validate_totp() {
+    attempt=0
+    while [ $attempt -lt $MAX_ATTEMPTS ]; do
+        # TOTP 코드 입력 요청
+        read -p "설치 코드를 입력하세요: " USER_CODE
+
+        # oathtool을 사용하여 현재 TOTP 코드 생성 및 검증
+        GENERATED_CODE=$(oathtool --totp -b "$SECRET_KEY")
+
+        if [ "$USER_CODE" == "$GENERATED_CODE" ]; then
+            return 0  # 유효한 코드
+        else
+            echo "잘못된 코드입니다. 다시 시도하세요."
+            attempt=$((attempt+1))
+        fi
+    done
+
+    if [ $attempt -eq $MAX_ATTEMPTS ]; then
+        echo "최대 시도 횟수를 초과했습니다. 설치를 진행할 수 없습니다."
+        rm -f ~/install  # 최대 시도 횟수를 초과했을 때 install 파일 삭제
+        echo "install 파일이 삭제되었습니다."
         exit 1
     fi
-    local rcon_port=$(awk '/RCONPort:/ {print $2}' "$output_file")
-    echo "$rcon_port"
 }
 
-execute_rcon_command() {
-    local rcon_command=$1
-    shift 
-    local rcon_args="$*" 
-    local rcon_port=$(getRCONPort)
-    local admin_password=$(getAdminPassword)
+# 설정 파일 초기화 및 업데이트 함
 
 
-    if [ -n "$rcon_args" ]; then
-        ./ARRCON -P "$rcon_port" -p "$admin_password" "$rcon_command" "$rcon_args"
+read_palworld_settings() {
+    local ini_file="$HOME/Steam/steamapps/common/PalServer/Pal/Saved/Config/LinuxServer/PalWorldSettings.ini"
+    local output_file="$HOME/.palworldsettings.ini"
+
+    # 파일 존재 여부 확인
+    if [ ! -f "$ini_file" ]; then
+        echo "Error: $ini_file 파일을 찾을 수 없습니다."
+        return 1
+    fi
+
+    # RCONEnabled 값 확인 및 필요한 경우 True로 변경
+    if grep -q 'RCONEnabled=False' "$ini_file"; then
+        sed -i 's/RCONEnabled=False/RCONEnabled=True/' "$ini_file"
+        echo "RCONEnabled 설정이 False에서 True로 변경되었습니다."
     else
-        ./ARRCON -P "$rcon_port" -p "$admin_password" "$rcon_command"
-    fi
-}
-
-
-start_service() {
-    if [ ! -f "$SERVICE_FILE" ]; then
-        print_message "경고: Palworld Server 서비스 파일이 존재하지 않습니다. 서비스 파일을 확인하거나 생성해주세요."
-        return 1 
+        echo "RCONEnabled 설정은 이미 True입니다."
     fi
 
-
-    if [ "$(systemctl is-active $SERVICE_NAME)" = "active" ]; then
-        print_message "현재 Palworld Server 서버가 이미 실행 중입니다."
-        return 0 # 이미 실행 중이므로 정상 종료합니다.
-    else
-        # 서비스를 시작합니다.
-        if sudo systemctl start $SERVICE_NAME; then
-            print_message "Palworld Server 시작하는 중입니다..."
-            sleep 2 # 잠시 대기합니다.
-
-            # 서비스 상태를 재확인합니다.
-            if [ "$(systemctl is-active $SERVICE_NAME)" = "active" ]; then
-                print_message "Palworld Server 정상적으로 시작되었습니다."
-                return 0 # 정상 종료합니다.
-            else
-                print_message "경고: Palworld Server서비스가 시작되었으나 정상적으로 실행 중이지 않습니다."
-                return 2 # 에러 코드와 함께 종료합니다.
-            fi
-        else
-            print_message "오류:Palworld Server 시작에 실패했습니다. 시스템 로그를 확인하세요."
-            return 3 # 에러 코드와 함께 종료합니다.
-        fi
-    fi
-}
-
-# 서비스 중지 함수
-stop_service() {
-    if systemctl is-active --quiet $SERVICE_NAME; then
-        print_message "서버에 save 명령을 보냅니다."
-        execute_rcon_command "Broadcast Pelworld_server_system_shutdown"
-        execute_rcon_command "Save"
-        execute_rcon_command "Broadcast [Save]_Success!"
-        print_message "[Save]_Success!"
-        sleep 2
-        sudo systemctl stop $SERVICE_NAME
-        print_message "서버를 중지합니다..."
-        sleep 2  # 잠시 대기
-        if systemctl is-active --quiet $SERVICE_NAME; then
-            print_message "서버가 정상적으로 종료되지 않았습니다."
-        else
-            print_message "서버가 정상적으로 종료되었습니다."
-        fi
-    else
-        print_message "서버는 이미 중지된 상태입니다."
-    fi
-}
-
-# 서비스 업데이트 함수
-update_service() {
-    stop_service
-    print_message "Palworld 서버 업데이트를 시작합니다..."
-    update_result=$(steamcmd +login anonymous +app_update 2394010 validate +quit 2>&1)
+    # AdminPassword 값 추출
+    local admin_password=$(awk '/AdminPassword=/ {match($0, /AdminPassword="([^"]*)"/, arr); print arr[1]}' "$ini_file")
     
-    if echo "$update_result" | grep -q "Success! App '2394010' fully installed."; then
-        print_message "업데이트 완료! 게임 서버를 다시 시작합니다."
-        start_service
-    elif echo "$update_result" | grep -q "Error"; then
-        print_message "업데이트 중 오류가 발생했습니다. 상세 정보:"
-        echo "$update_result"
-    else
-        print_message "업데이트 상태를 확인할 수 없습니다. 상세 로그를 확인하세요:"
-        echo "$update_result"
-    fi
-}
+    # RCONPort 값 추출
+    local rcon_port=$(awk '/RCONPort=/ {match($0, /RCONPort=([0-9]+)/, arr); print arr[1]}' "$ini_file")
 
-# 리소스 삭제 함수
-cleanup_resources() {
-    print_message "리소스 삭제를 시작합니다..."
+    # 추출된 값으로 .palworldsettings.ini 파일 생성 또는 업데이트
+    echo "AdminPassword: $admin_password" > "$output_file"
+    echo "RCONPort: $rcon_port" >> "$output_file"
 
-    # 서비스 파일 삭제
-    if [ -f "$SERVICE_FILE" ]; then
-        print_message "$SERVICE_NAME 서비스 파일을 삭제합니다."
-        sudo systemctl stop $SERVICE_NAME
-        sudo systemctl disable $SERVICE_NAME
-        sudo rm -f "$SERVICE_FILE"
-        sudo systemctl daemon-reload
-        print_message "$SERVICE_NAME 서비스 파일이 삭제되었습니다."
-    else
-        print_message "$SERVICE_NAME 서비스 파일이 이미 삭제되었거나 존재하지 않습니다."
-    fi
-
-    # 초기화 플래그 파일 삭제
-    if [ -f "$INIT_FLAG_FILE" ]; then
-        print_message "초기화 플래그 파일을 삭제합니다."
-        rm -f "$INIT_FLAG_FILE"
-        print_message "초기화 플래그 파일이 삭제되었습니다."
-    else
-        print_message "초기화 플래그 파일이 이미 삭제되었거나 존재하지 않습니다."
-    fi
-
-    # 홈 디렉토리에서 palworld 파일/디렉토리 삭제
-    local palworld_path="${HOME}/palworld"
-    if [ -e "$palworld_path" ]; then
-        print_message "홈 디렉토리에서 'palworld'을(를) 삭제합니다."
-        rm -rf "$palworld_path"
-        print_message "'palworld'이(가) 삭제되었습니다."
-    else
-        print_message "홈 디렉토리에 'palworld'이(가) 존재하지 않습니다."
-    fi
-
-    print_message "모든 리소스가 삭제되었습니다."
+    echo ".palworldsettings.ini 파일이 생성되었습니다."
 }
 
 
-# 스크립트 업데이트 확인 및 실행
-check_and_update_script() {
-    # 첫 번째 인자로 'noupdate'를 받으면 업데이트 검사를 건너뜁니다.
-    if [ "$1" = "noupdate" ]; then
-        return
+# 소프트웨어 설치 함수
+install_software() {
+    echo "마루타 구동기를 설치합니다"
+    wget -O ~/palworld https://raw.githubusercontent.com/kwakdolseok/maruta/main/palworld
+    if [ $? -ne 0 ]; then
+        echo "palworld 다운로드에 실패했습니다."
+        exit 1
     fi
 
-    local remote_version=$(wget -qO- https://raw.githubusercontent.com/kwakdolseok/maruta/main/palworld | grep '^VERSION=' | head -1 | cut -d '"' -f 2)
+    chmod +x ~/palworld
+    ~/palworld
 
-    if [ "$VERSION" != "$remote_version" ]; then
-        print_message "새 버전 $remote_version 발견. 업데이트를 진행하시겠습니까? (yes/y 또는 no/n)"
-        read -r user_input
-        case $user_input in
-            yes|y|YES|Y)
-                print_message "마루타 구동기를 업데이트하고 있습니다..."
-                wget -q -O ~/palworld https://raw.githubusercontent.com/kwakdolseok/maruta/main/palworld
-                chmod +x ~/palworld
-                # 업데이트 후 스크립트를 실행할 때 'noupdate' 인자를 전달합니다.
-                exec ~/palworld noupdate
-                print_message "마루타 구동기 업데이트 완료 했습니다."
-                ;;
-            no|n|NO|N)
-                print_message "업데이트를 취소했습니다."
-                ;;
-            *)
-                print_message "잘못된 입력입니다. 업데이트를 취소합니다."
-                ;;
-        esac
+    wget -O ~/arrcon.zip https://github.com/radj307/ARRCON/releases/download/3.3.7/ARRCON-3.3.7-Linux.zip
+    if [ $? -ne 0 ]; then
+        echo "ARRCON 다운로드에 실패했습니다."
+        exit 1
     fi
+
+    unzip ~/arrcon.zip -d ~
+    if [ $? -ne 0 ]; then
+        echo "압축 해제에 실패했습니다."
+        exit 1
+    fi
+
+    rm ~/arrcon.zip
+
+
+    # 홈 디렉토리로 ~/arrcon/ 폴더 안의 파일 및 폴더 이동 및 정리
+    if [ -d ~/arrcon ]; then
+        mv -f ~/arrcon/* ~/
+        rm -rf ~/arrcon
+
+    fi
+
+    # 설치 완료 후 install 파일 삭제
+    rm -f ~/install
+
 }
 
-
-# 업데이트 체크 함수를 호출합니다.
-check_and_update_script
-
-# 초기 설정 함수
-initialize_script() {
-    create_service_file
-    print_initial_message
-    touch "$INIT_FLAG_FILE"
-}
-
-# 초기 설정 확인 및 실행
-[ ! -f "$INIT_FLAG_FILE" ] && initialize_script
-
-
-control_service() {
-    case $1 in
-        start|START|st|ST|시작)
-            start_service
-            ;;
-        stop|STOP|sp|SP|정지)
-            stop_service
-            ;;
-        update|UPDATE|up|UP|업데이트)
-            update_service
-            ;;
-        execute_rcon_command)
-            shift
-            if [ $# -gt 0 ]; then
-                execute_rcon_command "$@"
-            else
-                print_message "RCON 명령어가 지정되지 않았습니다."
-            fi
-            ;;
-        삭제)
-            cleanup_resources
-            ;;
-        
-    esac
-}
-
-control_service "$@"
-
+# TOTP 코드 검증 후 소프트웨어 설치 및 설정 초기화
+if validate_totp; then
+    install_software
+    iread_palworld_settings
+else
+    echo "설치 코드 검증에 실패했습니다."
+    exit 1
+fi
